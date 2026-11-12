@@ -1,49 +1,46 @@
+"""Small, dependency-free poem analysis and duplicate helpers."""
+
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
 
 
-class PoemAnalyzer:
-    """Analyzes poem content for theme, emotion, language, and quality hints."""
+def content_hash(text: str) -> str:
+    normalized = " ".join(text.casefold().split())
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
-    @staticmethod
-    def analyze(poem_text: str) -> dict[str, Any]:
-        text = poem_text.strip()
-        lowered = text.lower()
-        category = "general"
-        if any(word in lowered for word in ("ချစ်", "love", "အချစ်")):
-            category = "love"
-        elif any(word in lowered for word in ("တောင်", "သစ်ပင်", "ပန်း", "nature", "tree")):
-            category = "nature"
-        elif any(word in lowered for word in ("အား", "မိုး", "hope", "မင်္ဂလာ")):
-            category = "motivation"
 
-        emotion = "neutral"
-        if any(word in lowered for word in ("မေတ္တာ", "joy", "ပျော်", "မင်္ဂလာ")):
-            emotion = "joy"
-        elif any(word in lowered for word in ("စိတ်မကောင်း", "sad", "ဝမ်းနည်း", "ဆင်းရဲ")):
-            emotion = "sorrow"
-        elif any(word in lowered for word in ("လွမ်း", "longing", "အိပ်မက်")):
-            emotion = "longing"
-
-        themes = []
-        for token in ["love", "nature", "hope", "loneliness", "peace", "memory", "အချစ်", "လွမ်း"]:
-            if token in lowered:
-                themes.append(token)
-        if not themes:
-            themes.append("general")
-
-        quality_score = 75
-        if len(text.split()) > 20:
-            quality_score += 10
-        if len(text.split()) < 8:
-            quality_score -= 10
-
-        return {
-            "category": category,
-            "emotion": emotion,
-            "themes": themes[:4],
-            "quality_score": max(0, min(100, quality_score)),
-            "language": "my" if any(ch in "အကရစသဟမင်း" for ch in text) else "en",
-            "reasoning": "Heuristic analysis based on visible mood and recurring word patterns.",
-        }
+def analyze_poem(text: str) -> dict[str, Any]:
+    body = text.strip()
+    if not body:
+        raise ValueError("Poem cannot be empty")
+    lowered = body.casefold()
+    category, emotion = "general", "neutral"
+    signals = {
+        "love": ("အချစ်", "ချစ်", "love", "နှလုံးသား"),
+        "nature": ("ပန်း", "တောင်", "သစ်ပင်", "မိုး", "nature"),
+        "hope": ("မျှော်လင့်", "အနာဂတ်", "hope", "အောင်မြင်"),
+        "sadness": ("ဝမ်းနည်း", "လွမ်း", "အထီးကျန်", "sad", "sorrow"),
+    }
+    for label, words in signals.items():
+        if any(word in lowered for word in words):
+            category = label
+            break
+    if any(word in lowered for word in ("ပျော်", "ရယ်မော", "joy", "ပျော်ရွှင်")):
+        emotion = "joy"
+    elif any(word in lowered for word in ("ဝမ်းနည်း", "လွမ်း", "sad", "ငို")):
+        emotion = "sorrow"
+    elif any(word in lowered for word in ("မျှော်လင့်", "မျှော်လင့်", "hope")):
+        emotion = "hope"
+    elif any(word in lowered for word in ("ငြိမ်းချမ်း", "အေးချမ်း", "peace")):
+        emotion = "peace"
+    has_myanmar = bool(re.search(r"[\u1000-\u109f]", body))
+    has_latin = bool(re.search(r"[A-Za-z]", body))
+    language = "mixed" if has_myanmar and has_latin else "my" if has_myanmar else "en"
+    lines = [line for line in body.splitlines() if line.strip()]
+    score = min(100, max(35, 55 + min(len(lines), 8) * 4))
+    return {"category": category, "emotion": emotion, "language": language,
+            "themes": [category], "quality_score": score,
+            "note": "Heuristic estimate; owner should review."}

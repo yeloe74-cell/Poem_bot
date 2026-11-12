@@ -1,11 +1,5 @@
-"""Shared configuration package."""
+"""Configuration package."""
 
-from .settings import AppSettings, AISettings, DatabaseSettings, Settings, load_settings
+from .settings import ConfigurationError, Settings, load_settings
 
-__all__ = [
-    "AppSettings",
-    "AISettings",
-    "DatabaseSettings",
-    "Settings",
-    "load_settings",
-]
+__all__ = ["ConfigurationError", "Settings", "load_settings"]
